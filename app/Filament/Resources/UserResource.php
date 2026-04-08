@@ -51,7 +51,7 @@ class UserResource extends Resource
                                 : new \Illuminate\Support\HtmlString('<span style="color:#666">Nenhuma foto</span>')
                             ),
 
-                        // Etiqueta para Super Admin (não editável)
+                        // Etiqueta para Super Admin
                         Forms\Components\Placeholder::make('access_level_label')
                             ->label('Nível de acesso')
                             ->content(fn (?User $record) => match($record?->access_level) {
@@ -146,8 +146,6 @@ class UserResource extends Resource
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('cnpj', $state, $record)),
                         Forms\Components\TextInput::make('ie')->label('Inscrição Estadual')->mask('999.999.999.999')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('ie', $state, $record)),
-                        Forms\Components\TextInput::make('rs')->label('Registro profissional')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('rs', $state, $record)),
                     ])->columns(2),
 
                 // ─── SITE E REDES PRINCIPAIS ──────────────────────────────
@@ -197,15 +195,18 @@ class UserResource extends Resource
                 // ─── ALTERAR SENHA ────────────────────────────────────────
                 Forms\Components\Section::make('Alterar senha')
                     ->schema([
+                        // Senha atual — aparece só quando edita o próprio perfil
                         Forms\Components\TextInput::make('current_password')
                             ->label('Senha atual')->password()->revealable()->dehydrated(false)
-                            ->visible(fn (?User $record) => $record?->id === Auth::id()),
+                            ->visible(fn (?User $record) => (int) $record?->id === (int) Auth::id()),
+
                         Forms\Components\TextInput::make('password')
                             ->label('Nova senha')->password()->revealable()
                             ->required(fn (string $operation) => $operation === 'create')
                             ->dehydrated(fn ($state) => filled($state))
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->placeholder(fn (string $operation) => $operation === 'edit' ? 'Deixe em branco para manter a atual' : ''),
+
                         Forms\Components\TextInput::make('password_confirmation')
                             ->label('Confirmar nova senha')->password()->revealable()
                             ->required(fn (string $operation) => $operation === 'create')

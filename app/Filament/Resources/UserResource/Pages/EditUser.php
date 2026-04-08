@@ -7,6 +7,7 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 
 class EditUser extends EditRecord
@@ -48,16 +49,41 @@ class EditUser extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\DeleteAction::make(),
-        ];
+        $actions = [];
+
+        // Botão Reset .env — só para Super Admin editando o próprio perfil
+        if (Auth::user()->isSuperAdmin() && (int) Auth::id() === (int) $this->record->id) {
+            $actions[] = Actions\Action::make('resetFromEnv')
+                ->label('Resetar do .env')
+                ->icon('heroicon-o-arrow-path')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalHeading('Resetar dados do .env?')
+                ->modalDescription('Isso vai sobrescrever os dados do perfil com as informações do arquivo .env. A senha NÃO será alterada. Continuar?')
+                ->modalSubmitActionLabel('Sim, resetar')
+                ->action(function () {
+                    Artisan::call('db:seed', ['--class' => 'UserProfileSeeder', '--force' => true]);
+                    Notification::make()
+                        ->title('Dados resetados do .env com sucesso!')
+                        ->success()
+                        ->send();
+                });
+        }
+
+        // Botão excluir — não aparece para Super Admin
+        if (!$this->record->isSuperAdmin()) {
+            $actions[] = Actions\DeleteAction::make();
+        }
+
+        return $actions;
     }
 
     public function savePassword(): void
     {
-        $data    = $this->data;
-        $isSelf  = $this->record->id === Auth::id();
+        $data   = $this->data;
+        $isSelf = (int) $this->record->id === (int) Auth::id();
 
+        // Pede senha atual apenas quando edita o próprio perfil
         if ($isSelf) {
             if (empty($data['current_password'])) {
                 Notification::make()->title('Informe a senha atual!')->warning()->send();

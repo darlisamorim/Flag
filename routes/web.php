@@ -4,7 +4,8 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    $user = App\Models\User::where('access_level', 'super_admin')->first();
+    return view('welcome', compact('user'));
 });
 
 Route::get('/dashboard', function () {
