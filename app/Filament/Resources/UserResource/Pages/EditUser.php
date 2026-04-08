@@ -20,15 +20,17 @@ class EditUser extends EditRecord
 
         $auth    = Auth::user();
         $editing = $this->record;
+        $isSelf  = (int) $auth->id === (int) $editing->id;
 
-        // Admin não pode editar Super Admin ou outro Admin
-        if ($auth->isAdmin() && ($editing->isSuperAdmin() || $editing->isAdmin())) {
+        // Editor só pode editar o próprio perfil
+        if ($auth->isEditor() && !$isSelf) {
             abort(403, 'Sem permissão para editar este usuário.');
         }
 
-        // Editor não acessa nada aqui
-        if ($auth->isEditor()) {
-            abort(403, 'Sem permissão.');
+        // Admin pode editar o próprio perfil e Editors
+        // Admin NÃO pode editar Super Admin nem outro Admin
+        if ($auth->isAdmin() && !$isSelf && !$editing->isEditor()) {
+            abort(403, 'Sem permissão para editar este usuário.');
         }
     }
 
@@ -49,10 +51,12 @@ class EditUser extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        $actions = [];
+        $actions  = [];
+        $isSelf   = (int) Auth::id() === (int) $this->record->id;
+        $isSuperAdmin = Auth::user()->isSuperAdmin();
 
-        // Botão Reset .env — só para Super Admin editando o próprio perfil
-        if (Auth::user()->isSuperAdmin() && (int) Auth::id() === (int) $this->record->id) {
+        // Botão Reset .env — só para Super Admin no próprio perfil
+        if ($isSuperAdmin && $isSelf) {
             $actions[] = Actions\Action::make('resetFromEnv')
                 ->label('Resetar do .env')
                 ->icon('heroicon-o-arrow-path')
@@ -63,10 +67,7 @@ class EditUser extends EditRecord
                 ->modalSubmitActionLabel('Sim, resetar')
                 ->action(function () {
                     Artisan::call('db:seed', ['--class' => 'UserProfileSeeder', '--force' => true]);
-                    Notification::make()
-                        ->title('Dados resetados do .env com sucesso!')
-                        ->success()
-                        ->send();
+                    Notification::make()->title('Dados resetados do .env com sucesso!')->success()->send();
                 });
         }
 
@@ -83,7 +84,6 @@ class EditUser extends EditRecord
         $data   = $this->data;
         $isSelf = (int) $this->record->id === (int) Auth::id();
 
-        // Pede senha atual apenas quando edita o próprio perfil
         if ($isSelf) {
             if (empty($data['current_password'])) {
                 Notification::make()->title('Informe a senha atual!')->warning()->send();

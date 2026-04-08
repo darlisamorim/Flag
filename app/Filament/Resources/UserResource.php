@@ -51,7 +51,7 @@ class UserResource extends Resource
                                 : new \Illuminate\Support\HtmlString('<span style="color:#666">Nenhuma foto</span>')
                             ),
 
-                        // Etiqueta para Super Admin
+                        // Etiqueta para Super Admin — não editável
                         Forms\Components\Placeholder::make('access_level_label')
                             ->label('Nível de acesso')
                             ->content(fn (?User $record) => match($record?->access_level) {
@@ -61,7 +61,7 @@ class UserResource extends Resource
                             })
                             ->visible(fn (?User $record) => $record?->isSuperAdmin() ?? false),
 
-                        // Dropdown para não Super Admin
+                        // Dropdown de nível — só aparece para não Super Admin
                         Forms\Components\Select::make('access_level')
                             ->label('Nível de acesso')
                             ->options(function (?User $record) {
@@ -102,115 +102,198 @@ class UserResource extends Resource
                 // ─── INFORMAÇÕES PESSOAIS ─────────────────────────────────
                 Forms\Components\Section::make('Informações pessoais')
                     ->schema([
-                        Forms\Components\TextInput::make('name')->label('Nome completo')->required()
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('name', $state, $record)),
-                        Forms\Components\DatePicker::make('birthdate')->label('Data de nascimento')->displayFormat('d/m/Y')->maxDate(now()->subYears(1))
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('birthdate', $state, $record)),
-                        Forms\Components\TextInput::make('email')->label('E-mail')->email()->required()->unique(ignoreRecord: true)
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('email', $state, $record)),
-                        Forms\Components\TextInput::make('phone')->label('Telefone / WhatsApp')->mask('+55 (99) 999-999-999')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('phone', $state, $record)),
-                        Forms\Components\TextInput::make('title')->label('Cargo / título')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('title', $state, $record)),
-                        Forms\Components\TextInput::make('role')->label('Função técnica')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('role', $state, $record)),
-                        Forms\Components\TextInput::make('subname')->label('Tagline / subtítulo')->columnSpanFull()
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('subname', $state, $record)),
-                        Forms\Components\Textarea::make('bio')->label('Bio / descrição')->rows(4)->columnSpanFull()
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('bio', $state, $record)),
+                        Forms\Components\TextInput::make('name')
+                            ->label('Nome completo')
+                            ->placeholder('Ex: Darlis Alves Amorim')
+                            ->required()
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('name', $state, $record)),
+
+                        Forms\Components\DatePicker::make('birthdate')
+                            ->label('Data de nascimento')
+                            ->placeholder('DD/MM/AAAA')
+                            ->displayFormat('d/m/Y')
+                            ->maxDate(now()->subYears(1))
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('birthdate', $state, $record)),
+
+                        Forms\Components\TextInput::make('email')
+                            ->label('E-mail')
+                            ->placeholder('Ex: eu@seusite.com')
+                            ->email()
+                            ->required()
+                            ->unique(ignoreRecord: true)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('email', $state, $record)),
+
+                        Forms\Components\TextInput::make('phone')
+                            ->label('Telefone / WhatsApp')
+                            ->placeholder('Ex: +55 (11) 999-999-999')
+                            ->mask('+55 (99) 999-999-999')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('phone', $state, $record)),
+
+                        Forms\Components\TextInput::make('title')
+                            ->label('Cargo / título')
+                            ->placeholder('Ex: Developer & Design')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('title', $state, $record)),
+
+                        Forms\Components\TextInput::make('role')
+                            ->label('Função técnica')
+                            ->placeholder('Ex: Software Engineer')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('role', $state, $record)),
+
+                        Forms\Components\TextInput::make('subname')
+                            ->label('Tagline / subtítulo')
+                            ->placeholder('Ex: Full Stack Developer de São Paulo/SP')
+                            ->columnSpanFull()
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('subname', $state, $record)),
+
+                        Forms\Components\Textarea::make('bio')
+                            ->label('Bio / descrição')
+                            ->placeholder('Ex: Desenvolvedor Full Stack apaixonado por tecnologia...')
+                            ->rows(4)
+                            ->columnSpanFull()
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('bio', $state, $record)),
                     ])->columns(2),
 
                 // ─── ENDEREÇO ─────────────────────────────────────────────
                 Forms\Components\Section::make('Endereço')
                     ->schema([
-                        Forms\Components\TextInput::make('addr')->label('Endereço')->columnSpan(2)
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('addr', $state, $record)),
-                        Forms\Components\TextInput::make('district')->label('Bairro / Região')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('district', $state, $record)),
-                        Forms\Components\TextInput::make('location')->label('Cidade, UF')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('location', $state, $record)),
-                        Forms\Components\TextInput::make('zip')->label('CEP')->mask('99999-999')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('zip', $state, $record)),
-                        Forms\Components\TextInput::make('country')->label('País')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('country', $state, $record)),
+                        Forms\Components\TextInput::make('addr')
+                            ->label('Endereço')
+                            ->placeholder('Ex: Av. Interlagos, 4944')
+                            ->columnSpan(2)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('addr', $state, $record)),
+
+                        Forms\Components\TextInput::make('district')
+                            ->label('Bairro / Região')
+                            ->placeholder('Ex: Zona Sul')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('district', $state, $record)),
+
+                        Forms\Components\TextInput::make('location')
+                            ->label('Cidade, UF')
+                            ->placeholder('Ex: São Paulo, SP')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('location', $state, $record)),
+
+                        Forms\Components\TextInput::make('zip')
+                            ->label('CEP')
+                            ->placeholder('Ex: 04777-000')
+                            ->mask('99999-999')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('zip', $state, $record)),
+
+                        Forms\Components\TextInput::make('country')
+                            ->label('País')
+                            ->placeholder('Ex: Brasil')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('country', $state, $record)),
                     ])->columns(2),
 
                 // ─── DADOS JURÍDICOS ──────────────────────────────────────
                 Forms\Components\Section::make('Dados jurídicos')
                     ->schema([
-                        Forms\Components\TextInput::make('razao_social')->label('Razão social')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('razao_social', $state, $record)),
-                        Forms\Components\TextInput::make('nome_fantasia')->label('Nome fantasia')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('nome_fantasia', $state, $record)),
-                        Forms\Components\TextInput::make('cnpj')->label('CNPJ')->mask('99.999.999/9999-99')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('cnpj', $state, $record)),
-                        Forms\Components\TextInput::make('ie')->label('Inscrição Estadual')->mask('999.999.999.999')
-                            ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('ie', $state, $record)),
+                        Forms\Components\TextInput::make('razao_social')
+                            ->label('Razão social')
+                            ->placeholder('Ex: Darlis Alves Amorim LTDA')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('razao_social', $state, $record)),
+
+                        Forms\Components\TextInput::make('nome_fantasia')
+                            ->label('Nome fantasia')
+                            ->placeholder('Ex: DAA Studio')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('nome_fantasia', $state, $record)),
+
+                        Forms\Components\TextInput::make('cnpj')
+                            ->label('CNPJ')
+                            ->placeholder('Ex: 00.000.000/0001-00')
+                            ->mask('99.999.999/9999-99')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('cnpj', $state, $record)),
+
+                        Forms\Components\TextInput::make('ie')
+                            ->label('Inscrição Estadual')
+                            ->placeholder('Ex: 000.000.000.000')
+                            ->mask('999.999.999.999')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('ie', $state, $record)),
                     ])->columns(2),
 
                 // ─── SITE E REDES PRINCIPAIS ──────────────────────────────
                 Forms\Components\Section::make('Site e redes principais')
                     ->schema([
-                        Forms\Components\TextInput::make('website')->label('Site pessoal')->url()
+                        Forms\Components\TextInput::make('website')->label('Site pessoal')->url()->placeholder('https://seusite.com')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('website', $state, $record)),
-                        Forms\Components\TextInput::make('links')->label('Linktree / Links')->url()
+                        Forms\Components\TextInput::make('links')->label('Linktree / Links')->url()->placeholder('https://linktr.ee/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('links', $state, $record)),
-                        Forms\Components\TextInput::make('github')->label('GitHub')->url()
+                        Forms\Components\TextInput::make('github')->label('GitHub')->url()->placeholder('https://github.com/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('github', $state, $record)),
-                        Forms\Components\TextInput::make('linkedin')->label('LinkedIn')->url()
+                        Forms\Components\TextInput::make('linkedin')->label('LinkedIn')->url()->placeholder('https://linkedin.com/in/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('linkedin', $state, $record)),
-                        Forms\Components\TextInput::make('twitter')->label('Twitter / X')->url()
+                        Forms\Components\TextInput::make('twitter')->label('Twitter / X')->url()->placeholder('https://x.com/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('twitter', $state, $record)),
-                        Forms\Components\TextInput::make('instagram')->label('Instagram')->url()
+                        Forms\Components\TextInput::make('instagram')->label('Instagram')->url()->placeholder('https://instagram.com/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('instagram', $state, $record)),
-                        Forms\Components\TextInput::make('tiktok')->label('TikTok')->url()
+                        Forms\Components\TextInput::make('tiktok')->label('TikTok')->url()->placeholder('https://tiktok.com/@seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('tiktok', $state, $record)),
-                        Forms\Components\TextInput::make('youtube')->label('YouTube')->url()
+                        Forms\Components\TextInput::make('youtube')->label('YouTube')->url()->placeholder('https://youtube.com/@seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('youtube', $state, $record)),
-                        Forms\Components\TextInput::make('facebook')->label('Facebook (perfil)')->url()
+                        Forms\Components\TextInput::make('facebook')->label('Facebook (perfil)')->url()->placeholder('https://facebook.com/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('facebook', $state, $record)),
-                        Forms\Components\TextInput::make('fb_page')->label('Facebook (página)')->url()
+                        Forms\Components\TextInput::make('fb_page')->label('Facebook (página)')->url()->placeholder('https://facebook.com/suapagina')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('fb_page', $state, $record)),
                     ])->columns(2),
 
                 // ─── OUTRAS REDES ─────────────────────────────────────────
                 Forms\Components\Section::make('Outras redes')
                     ->schema([
-                        Forms\Components\TextInput::make('medium')->label('Medium')->url()
+                        Forms\Components\TextInput::make('medium')->label('Medium')->url()->placeholder('https://medium.com/@seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('medium', $state, $record)),
-                        Forms\Components\TextInput::make('devto')->label('Dev.to')->url()
+                        Forms\Components\TextInput::make('devto')->label('Dev.to')->url()->placeholder('https://dev.to/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('devto', $state, $record)),
-                        Forms\Components\TextInput::make('codepen')->label('CodePen')->url()
+                        Forms\Components\TextInput::make('codepen')->label('CodePen')->url()->placeholder('https://codepen.io/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('codepen', $state, $record)),
-                        Forms\Components\TextInput::make('behance')->label('Behance')->url()
+                        Forms\Components\TextInput::make('behance')->label('Behance')->url()->placeholder('https://behance.net/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('behance', $state, $record)),
-                        Forms\Components\TextInput::make('dribbble')->label('Dribbble')->url()
+                        Forms\Components\TextInput::make('dribbble')->label('Dribbble')->url()->placeholder('https://dribbble.com/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('dribbble', $state, $record)),
-                        Forms\Components\TextInput::make('deviantart')->label('DeviantArt')->url()
+                        Forms\Components\TextInput::make('deviantart')->label('DeviantArt')->url()->placeholder('https://deviantart.com/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('deviantart', $state, $record)),
-                        Forms\Components\TextInput::make('pinterest')->label('Pinterest')->url()
+                        Forms\Components\TextInput::make('pinterest')->label('Pinterest')->url()->placeholder('https://pinterest.com/seuperfil')
                             ->live(onBlur: true)->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('pinterest', $state, $record)),
                     ])->columns(2),
 
                 // ─── ALTERAR SENHA ────────────────────────────────────────
                 Forms\Components\Section::make('Alterar senha')
                     ->schema([
-                        // Senha atual — aparece só quando edita o próprio perfil
+                        // Senha atual — só quando edita o próprio perfil
                         Forms\Components\TextInput::make('current_password')
-                            ->label('Senha atual')->password()->revealable()->dehydrated(false)
+                            ->label('Senha atual')
+                            ->password()->revealable()->dehydrated(false)
                             ->visible(fn (?User $record) => (int) $record?->id === (int) Auth::id()),
 
                         Forms\Components\TextInput::make('password')
-                            ->label('Nova senha')->password()->revealable()
+                            ->label('Nova senha')
+                            ->password()->revealable()
                             ->required(fn (string $operation) => $operation === 'create')
                             ->dehydrated(fn ($state) => filled($state))
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->placeholder(fn (string $operation) => $operation === 'edit' ? 'Deixe em branco para manter a atual' : ''),
 
                         Forms\Components\TextInput::make('password_confirmation')
-                            ->label('Confirmar nova senha')->password()->revealable()
+                            ->label('Confirmar nova senha')
+                            ->password()->revealable()
                             ->required(fn (string $operation) => $operation === 'create')
-                            ->dehydrated(false)->same('password'),
+                            ->dehydrated(false)
+                            ->same('password'),
                     ])->columns(3),
 
             ]);
