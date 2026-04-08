@@ -1,60 +1,5 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Commands
-
-```bash
-# Initial setup
-composer setup
-
-# Run development servers (Laravel + Vite + queue + logs in parallel)
-composer dev
-
-# Run tests (uses in-memory SQLite)
-composer test
-
-# Run a single test file or filter
-php artisan test --filter=TestClassName
-php artisan test tests/Feature/ExampleTest.php
-
-# Code style (Laravel Pint)
-vendor/bin/pint
-
-# Database
-php artisan migrate
-php artisan db:seed --class=UserProfileSeeder
-
-# Asset compilation
-npm run dev
-npm run build
-```
-
-## Architecture
-
-This is a **Laravel 12 + Filament 3 admin panel** — a personal profile/portfolio management system. The entire UI lives inside Filament at `/admin`.
-
-### Key concepts
-
-**Access control** is role-based via `access_level` on the `User` model: `super_admin`, `admin`, `editor`. Only `super_admin` and `admin` can access the Filament panel (`canAccessPanel`). The `UserObserver` auto-creates a super admin (from env vars) if the last one is deleted.
-
-**User model** (`app/Models/User.php`) is the central entity — it stores not just auth data but the entire user profile: personal info, address, Brazilian legal data (CNPJ, IE, etc.), and 17+ social network URLs.
-
-**Settings model** (`app/Models/Setting.php`) is a simple key/value store with groups (`identity`, `seo`, `assets`, `typography`, `mail`). Access via `Setting::get($key)` / `Setting::set($key, $value, $group)`.
-
-**Filament panel** (`app/Providers/Filament/AdminPanelProvider.php`) — panel ID is `admin`, path is `/admin`. The "Meu Perfil" user menu item links directly to `UserResource::edit` for the authenticated user.
-
-**UserResource** (`app/Filament/Resources/UserResource.php`) — the main (and currently only) Filament resource. All form fields use `->live(onBlur: true)->afterStateUpdated(fn ...)` to auto-save on blur via the private `autoSave()` helper. Super admins cannot be deleted or have their `access_level` changed through the UI.
-
-### Environment variables
-
-The `DAA_*` env vars populate the initial super admin user via `UserProfileSeeder`. Panel accent color is controlled by `DAA_PANEL_COLOR` (hex). Social URL fields follow a `DAA_*_URL` + `DAA_*` pattern (base URL + handle/path).
-
-### Tests
-
-Tests use SQLite in-memory (`DB_DATABASE=:memory:`). Test suites: `tests/Unit/` and `tests/Feature/`.
-
 # CLAUDE.md — Projeto Flag (darlisalvesamorim.dev)
+_Atualizado: 08/04/2026_
 
 ## Visão geral
 Site pessoal/portfólio com painel administrativo completo.
@@ -65,126 +10,149 @@ Stack: Laravel 12 + Filament v3 + Blade + Tailwind CSS + MySQL
 - **Composer**: 2.8.10
 - **Node**: v24.14.1
 - **Servidor local**: `php artisan serve` → http://127.0.0.1:8000
-- **Banco local**: MySQL (XAMPP) → banco `flag`
+- **Banco local**: MySQL (XAMPP) → banco `flag`, root sem senha
 - **Projeto**: `/Applications/XAMPP/xamppfiles/htdocs/Flag`
 
 ## Ambiente produção (Hostinger)
 - **Domínio**: https://www.darlisalvesamorim.dev
 - **SSH**: `ssh -p 65002 u310924194@147.79.85.200`
 - **Projeto**: `/home/u310924194/domains/darlisalvesamorim.dev/public_html`
-- **Banco**: u310924194_5lNnD / user: u310924194_Vf3DG
 
 ## Painel admin
 - **URL local**: http://127.0.0.1:8000/admin
-- **Login**: eu@darlisalvesamorim.dev
-- **Cor primária**: `#e3000b` (vermelho) via `DAA_PANEL_COLOR` no .env
+- **Login Super Admin**: eu@darlisalvesamorim.dev
+- **Cor primária**: `#e3000b` via `DAA_PANEL_COLOR` no .env
 
-## Arquitetura do sistema
+## Hierarquia de usuários
 
-### Níveis de acesso (users.access_level)
-- `super_admin` → acesso total, único que não pode ser deletado
-- `admin` → pode editar/excluir somente editors
-- `editor` → acessa o painel com limitações (em desenvolvimento)
+### Níveis (users.access_level)
+- `super_admin` → acesso total
+- `admin` → edita/exclui editors, edita próprio perfil
+- `editor` → edita apenas o próprio perfil
 
-### Arquivos principais já criados
+### Regras de permissão
+- Super Admin edita/exclui Admin e Editor
+- Super Admin NÃO edita outro Super Admin (apenas vê)
+- Admin edita/exclui Editor e próprio perfil
+- Admin NÃO edita outro Admin nem Super Admin
+- Editor edita apenas o próprio perfil
+- Ninguém pode excluir Super Admin
+- Se todos os usuários forem deletados, UserObserver recria o Super Admin
+
+### Campos de senha por contexto
+- **Logado na própria conta** → Senha atual + Nova senha + Confirmação
+- **Super Admin / Admin editando outro usuário** → Nova senha + Confirmação (sem senha atual)
+
+### Botão "Resetar do .env"
+- Aparece APENAS para Super Admin editando o próprio perfil
+- Atualiza todos os dados do perfil MAS não sobrescreve a senha
+
+## Arquivos principais
+
+### Models
 ```
-app/
-├── Models/
-│   ├── User.php              ← com isSuperAdmin(), isAdmin(), isEditor(), isAtLeastAdmin()
-│   └── Setting.php           ← get/set de configurações globais
-├── Observers/
-│   └── UserObserver.php      ← recria super_admin se todos forem deletados
-├── Providers/
-│   ├── AppServiceProvider.php ← registra UserObserver
-│   └── Filament/
-│       └── AdminPanelProvider.php ← cor, brandName, userMenuItems
-├── Filament/
-│   └── Resources/
-│       ├── UserResource.php  ← CRUD usuários com auto-save e hierarquia
-│       └── UserResource/Pages/
-│           ├── ListUsers.php
-│           ├── CreateUser.php
-│           └── EditUser.php  ← proteção de hierarquia + senha atual para self
+app/Models/User.php         ← isSuperAdmin(), isAdmin(), isEditor(), isAtLeastAdmin()
+app/Models/Setting.php      ← get/set configurações globais
 ```
 
-### Banco de dados — tabelas criadas
-- `users` — com todos os campos de perfil (avatar, redes sociais, endereço, dados jurídicos)
-- `settings` — chave/valor para configurações do site (group, key, value)
-- `sessions`, `cache`, `jobs` — padrão Laravel
+### Providers
+```
+app/Providers/AppServiceProvider.php              ← registra UserObserver
+app/Providers/Filament/AdminPanelProvider.php     ← cor, brandName, userMenuItems→UserResource
+```
 
-### Campos da tabela users
+### Observers
+```
+app/Observers/UserObserver.php  ← recria super_admin se todos deletados
+```
+
+### Filament Resources
+```
+app/Filament/Resources/UserResource.php                    ← CRUD com auto-save e hierarquia
+app/Filament/Resources/UserResource/Pages/ListUsers.php
+app/Filament/Resources/UserResource/Pages/CreateUser.php
+app/Filament/Resources/UserResource/Pages/EditUser.php     ← proteção hierarquia + reset .env
+```
+
+## Banco de dados
+
+### Tabela users — campos
 ```
 id, name, email, password, avatar, title, role, subname, bio, birthdate,
-phone, location, addr, district, zip, country, cnpj, ie, rs, razao_social,
-nome_fantasia, links, github, linkedin, twitter, instagram, tiktok, youtube,
-facebook, fb_page, medium, devto, codepen, behance, dribbble, deviantart,
-pinterest, website, locale, access_level, email_verified_at,
-remember_token, created_at, updated_at
+phone, location, addr, district, zip, country,
+cnpj, ie, razao_social, nome_fantasia,
+links, github, linkedin, twitter, instagram, tiktok, youtube,
+facebook, fb_page, medium, devto, codepen, behance, dribbble, deviantart, pinterest,
+website, locale, access_level, email_verified_at, remember_token, created_at, updated_at
 ```
 
-### Tabela settings — grupos existentes
+### Tabela settings — grupos
 - `identity` → site.name, site.subname, site.description, site.office, site.role, site.charset
 - `seo` → seo.schema, seo.schema_og, seo.google_veri
 - `assets` → assets.logotipo, assets.avatar, assets.image_share, assets.favicon, assets.cv
 - `typography` → typography.font_name, typography.font_weight
+- `personal` → personal.email, phone, addr, district, city, uf, zip, country, age, cnpj, ie
+- `social` → todas as redes sociais
 - `mail` → mail.from_address, mail.from_name
 
-## Seeders disponíveis
+## Seeders
 ```bash
 php artisan db:seed --class=UserProfileSeeder  # popula user + settings do .env
+# IMPORTANTE: Seeder NUNCA sobrescreve a senha se o usuário já existe
 ```
 
 ## .env — variáveis principais
 ```
 APP_NAME="Darlis Alves Amorim"
 DAA_PANEL_COLOR=#e3000b
-DAA_NAME, DAA_EMAIL, DAA_PHONE, DAA_OFFICE, DAA_ROLE
-DAA_ADDR, DAA_DISTRICT, DAA_CITY, DAA_UF, DAA_ZIP, DAA_COUNTRY
-DAA_CNPJ, DAA_IE, DAA_RS, DAA_RAZAO_SOCIAL, DAA_NOME_FANTASMA
-DAA_GITHUB_URL + DAA_GITHUB (padrão para todas as redes sociais)
-DAA_LINKEDIN_URL + DAA_LINKEDIN
-DAA_TWITTER_URL + DAA_TWITTER
-... etc
+DAA_NAME, DAA_EMAIL, DAA_PHONE, DAA_OFFICE, DAA_ROLE, DAA_SUBNAME, DAA_DESCRIPTION
+DAA_ADDR, DAA_DISTRICT, DAA_CITY, DAA_UF=SP, DAA_ZIP, DAA_COUNTRY
+DAA_CNPJ, DAA_IE, DAA_RAZAO_SOCIAL, DAA_NOME_FANTASMA
+# Redes sociais — URL base + handle separados, concatenados no seeder:
+DAA_GITHUB_URL=https://github.com/ + DAA_GITHUB=darlisamorim → https://github.com/darlisamorim
+# Mesmo padrão para: LINKEDIN, TWITTER, INSTAGRAM, TIKTOK, YOUTUBE, FB, FB_PAGE,
+# MEDIUM, DEVTO, CODEPEN, BEHANCE, DRIBBBLE, DEVIANTART, PINTEREST, LINKS
 ```
+
+## Navegação do painel
+- "Meu Perfil" no avatar superior direito → redireciona para /admin/users/ID/edit
+- Menu lateral "Usuários" → visível apenas para Super Admin e Admin
+- Editors acessam o perfil pelo avatar ou pela URL /admin/users/ID/edit
 
 ## O que está funcionando ✅
 - Filament instalado e configurado
-- Sistema de usuários com 3 níveis de hierarquia
-- UserResource com auto-save em todos os campos
+- Sistema de usuários com 3 níveis hierárquicos
+- UserResource com auto-save em todos os campos (onBlur)
 - Upload de avatar com rename automático (slug do nome)
 - Super Admin protegido de deleção
-- Admin não pode editar Super Admin
+- Hierarquia de permissões implementada e testada
+- "Meu Perfil" redireciona para UserResource para todos os níveis
+- Seeder popula dados sem sobrescrever senha
+- Botão "Resetar do .env" para Super Admin
 - Settings table populada via Seeder
-- Cor do painel via .env
+- Placeholders e máscaras em todos os campos
 
-## O que precisa ser corrigido/feito ❌
+## Pendências e próximos passos ❌
 
-### URGENTE — Bugs pendentes
-1. **Editor não consegue logar** — em `app/Models/User.php` mudar:
-   ```php
-   public function canAccessPanel(Panel $panel): bool
-   {
-       return true; // todos acessam, permissões por recurso
-   }
-   ```
+### Bugs pendentes
+1. **"Meu Perfil" no menu lateral** — ainda aparece para alguns usuários, deveria sumir
+2. **Typos no .env** — `DAA_DISTRICT="Zona SulL"` e `DAA_UF=SPP` — corrigir manualmente
+3. **Campo "Site pessoal"** do Super Admin mostra "test" — corrigir via painel
 
-2. **Cadastro de usuário** — ao criar usuário pelo painel, verificar se a senha está sendo salva com hash corretamente
+### Próximas funcionalidades (em ordem)
+1. **Testar welcome.blade.php** com dados do banco — rota já atualizada
+2. **Blog** — Resource Filament: Posts, Categorias, Tags
+3. **Projetos Open Source** — Resource + GitHub API
+4. **Páginas** — Sobre Mim, Contato (editor rico)
+5. **Mídia** — gerenciamento de imagens com SEO
+6. **Ferramentas** — Analytics, SEO global, Open Graph
+7. **Configurações** — E-mail, Tema, Identidade
+8. **Front-end público** — Home, Blog, Projetos, Contato, Sobre, Orçamento
 
-3. **Auto-save duplo no UserResource** — ocasionalmente dispara duas notificações "Salvo!"
-
-### Próximas funcionalidades a construir (em ordem)
-1. **Blog** — Resource Filament: Posts, Categorias, Subcategorias, Tags
-2. **Projetos Open Source** — Resource Filament + integração GitHub API
-3. **Páginas** (Sobre Mim, Contato) — editor TinyMCE ou similar
-4. **Mídia** — gerenciamento de imagens com campos SEO (alt, title, description)
-5. **Ferramentas** — Analytics, SEO global, Open Graph
-6. **Configurações** — E-mail (SMTP/Mailgun), Tema (cores, fontes), Identidade
-7. **Front-end público** — Blade + Tailwind (Home, Blog, Projetos, Contato, Sobre, Orçamento)
-
-## Mapa do sistema (menu do painel)
+## Mapa do painel
 ```
 Painel de controle
-├── Usuários          ← feito (só super_admin e admin)
+├── Usuários          ← feito (super_admin e admin)
 ├── Blog              ← a fazer
 ├── Projetos          ← a fazer
 ├── Mídia             ← a fazer
@@ -194,18 +162,18 @@ Painel de controle
 
 ## Comandos úteis
 ```bash
-php artisan serve                           # inicia servidor local
-php artisan migrate                         # roda migrations
+php artisan serve
+php artisan migrate
 php artisan db:seed --class=UserProfileSeeder
 php artisan cache:clear && php artisan config:clear && php artisan view:clear
 php artisan make:filament-resource NomeResource --generate
-php artisan make:migration create_xxx_table
 php artisan tinker
+git add . && git commit -m "mensagem"
 ```
 
 ## Observações importantes
-- O Breeze está instalado mas com rotas desativadas (comentado em `routes/web.php`)
-- O `php artisan serve` é necessário localmente (XAMPP não tem Node/Vite configurado para subpasta)
-- Storage link já criado: `public/storage` → `storage/app/public`
-- Avatars ficam em `storage/app/public/avatars/` com nome `slug-do-usuario.png`
-- O `.env` usa prefixo `DAA_` para variáveis personalizadas do projeto
+- Breeze instalado mas rotas desativadas (comentado em routes/web.php)
+- Storage link criado: public/storage → storage/app/public
+- Avatars: storage/app/public/avatars/slug-do-usuario.png
+- .env usa prefixo DAA_ para variáveis personalizadas
+- Nunca usar Claude Code em modo auto-accept — sempre usar "manually approve edits"

@@ -24,7 +24,21 @@ class UserResource extends Resource
     protected static ?string $pluralModelLabel = 'Usuários';
     protected static ?int $navigationSort = 98;
 
+    /**
+     * Qualquer usuário autenticado pode acessar as ROTAS do resource.
+     * A Policy controla quem pode ver/editar cada registro.
+     * A sidebar é controlada por shouldRegisterNavigation().
+     */
     public static function canAccess(): bool
+    {
+        return Auth::check();
+    }
+
+    /**
+     * Só Admin+ vê "Usuários" na sidebar.
+     * Editor não vê o menu, mas acessa /users/{id}/edit via link "Meu Perfil".
+     */
+    public static function shouldRegisterNavigation(): bool
     {
         return Auth::user()?->isAtLeastAdmin() ?? false;
     }
@@ -44,14 +58,53 @@ class UserResource extends Resource
                 // ─── PERFIL E ACESSO ──────────────────────────────────────
                 Forms\Components\Section::make('Perfil e acesso')
                     ->schema([
-                        Forms\Components\Placeholder::make('avatar_preview')
-                            ->label('Foto atual')
-                            ->content(fn (?User $record) => $record?->avatar
-                                ? new \Illuminate\Support\HtmlString('<img src="' . asset('storage/' . $record->avatar) . '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #444;">')
-                                : new \Illuminate\Support\HtmlString('<span style="color:#666">Nenhuma foto</span>')
-                            ),
 
-                        // Etiqueta para Super Admin — não editável
+                        // Foto de perfil — componente único com preview integrado
+                        Forms\Components\FileUpload::make('avatar')
+                            ->label('Foto de perfil')
+                            ->image()
+                            ->avatar()
+                            ->imageEditor()
+                            ->circleCropper()
+                            ->disk('public')
+                            ->directory('avatars')
+                            ->visibility('public')
+                            ->maxSize(2048)
+                            ->live()
+                            ->afterStateUpdated(function ($state, ?User $record, Forms\Set $set) {
+                                if (!$record) return;
+
+                                // Se removeu a foto
+                                if (empty($state)) {
+                                    if ($record->avatar && Storage::disk('public')->exists($record->avatar)) {
+                                        Storage::disk('public')->delete($record->avatar);
+                                    }
+                                    $record->update(['avatar' => null]);
+                                    Notification::make()->title('Foto removida!')->success()->duration(1500)->send();
+                                    return;
+                                }
+
+                                // O state pode ser um TemporaryUploadedFile ou uma string
+                                // Se for TemporaryUploadedFile, precisamos salvar manualmente
+                                if ($state instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
+                                    $fileName = Str::slug($record->name) . '-' . time() . '.' . ($state->getClientOriginalExtension() ?: 'png');
+                                    $path = $state->storeAs('avatars', $fileName, 'public');
+
+                                    // Deleta avatar antigo
+                                    if ($record->avatar && Storage::disk('public')->exists($record->avatar)) {
+                                        Storage::disk('public')->delete($record->avatar);
+                                    }
+
+                                    $record->update(['avatar' => $path]);
+                                    $set('avatar', $path);
+                                    Notification::make()->title('Foto atualizada!')->success()->duration(2000)->send();
+                                }
+                            }),
+
+                        // Badge de nível — visível quando:
+                        // - O record é Super Admin (nunca editável)
+                        // - OU o usuário está editando a si mesmo (não pode se rebaixar/promover)
+                        // - OU o usuário logado é Editor (não pode mudar nível de ninguém)
                         Forms\Components\Placeholder::make('access_level_label')
                             ->label('Nível de acesso')
                             ->content(fn (?User $record) => match($record?->access_level) {
@@ -59,12 +112,22 @@ class UserResource extends Resource
                                 'admin'       => new \Illuminate\Support\HtmlString('<span style="background:#1e3a5f;color:#93c5fd;padding:4px 12px;border-radius:9999px;font-size:13px;">Admin</span>'),
                                 default       => new \Illuminate\Support\HtmlString('<span style="background:#3b2f00;color:#fcd34d;padding:4px 12px;border-radius:9999px;font-size:13px;">Editor</span>'),
                             })
-                            ->visible(fn (?User $record) => $record?->isSuperAdmin() ?? false),
+                            ->visible(function (?User $record) {
+                                $auth = Auth::user();
+                                // Super Admin no record → sempre badge
+                                if ($record?->isSuperAdmin()) return true;
+                                // Editando a si mesmo → badge (não pode se rebaixar)
+                                if ($record && (int) $record->id === (int) $auth->id) return true;
+                                // Editor logado → badge (não pode mudar nível)
+                                if ($auth->isEditor()) return true;
+                                // Admin+ editando outro não-SuperAdmin → mostra dropdown
+                                return false;
+                            }),
 
-                        // Dropdown de nível — só aparece para não Super Admin
+                        // Dropdown de nível — só aparece para Admin+ editando OUTRO usuário (não SuperAdmin)
                         Forms\Components\Select::make('access_level')
                             ->label('Nível de acesso')
-                            ->options(function (?User $record) {
+                            ->options(function () {
                                 $auth = Auth::user();
                                 if ($auth->isSuperAdmin()) {
                                     return ['admin' => 'Admin', 'editor' => 'Editor'];
@@ -73,30 +136,18 @@ class UserResource extends Resource
                             })
                             ->default('editor')
                             ->required()
-                            ->visible(fn (?User $record) => !($record?->isSuperAdmin() ?? false))
+                            ->visible(function (?User $record) {
+                                $auth = Auth::user();
+                                // Não pode editar nível do SuperAdmin
+                                if ($record?->isSuperAdmin()) return false;
+                                // Não pode editar o próprio nível (se rebaixar)
+                                if ($record && (int) $record->id === (int) $auth->id) return false;
+                                // Só Admin+ pode ver o dropdown
+                                return $auth->isAtLeastAdmin();
+                            })
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, ?User $record) => self::autoSave('access_level', $state, $record)),
 
-                        Forms\Components\FileUpload::make('avatar')
-                            ->label('Alterar foto de perfil')
-                            ->image()->avatar()
-                            ->disk('public')->directory('avatars')
-                            ->visibility('public')->maxSize(2048)
-                            ->live()
-                            ->afterStateUpdated(function ($state, ?User $record) {
-                                if (empty($state) || !$record) return;
-                                $uploadedFile = basename($state);
-                                $currentFile  = $record->avatar ? basename($record->avatar) : null;
-                                if ($uploadedFile === $currentFile) return;
-                                $slug    = Str::slug($record->name);
-                                $ext     = pathinfo($uploadedFile, PATHINFO_EXTENSION) ?: 'png';
-                                $newName = $slug . '.' . $ext;
-                                Storage::disk('public')->move('avatars/' . $uploadedFile, 'avatars/' . $newName);
-                                if ($currentFile && $currentFile !== $newName) Storage::disk('public')->delete('avatars/' . $currentFile);
-                                $record->update(['avatar' => 'avatars/' . $newName]);
-                                Notification::make()->title('Foto atualizada!')->success()->duration(2000)->send();
-                            })
-                            ->columnSpan(2),
                     ])->columns(2),
 
                 // ─── INFORMAÇÕES PESSOAIS ─────────────────────────────────
@@ -274,7 +325,6 @@ class UserResource extends Resource
                 // ─── ALTERAR SENHA ────────────────────────────────────────
                 Forms\Components\Section::make('Alterar senha')
                     ->schema([
-                        // Senha atual — só quando edita o próprio perfil
                         Forms\Components\TextInput::make('current_password')
                             ->label('Senha atual')
                             ->password()->revealable()->dehydrated(false)

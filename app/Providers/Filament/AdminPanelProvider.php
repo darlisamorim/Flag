@@ -34,12 +34,21 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::hex(env('DAA_PANEL_COLOR') ?: '#e3000b'),
             ])
+
+            // ── Menu do usuário: "Meu Perfil" leva para UserResource/edit ──
             ->userMenuItems([
                 'profile' => MenuItem::make()
                     ->label('Meu Perfil')
                     ->url(fn () => UserResource::getUrl('edit', ['record' => Auth::id()]))
                     ->icon('heroicon-o-user-circle'),
             ])
+
+            // ── Render hook: mostra nome + role ao lado do avatar no header ──
+            ->renderHook(
+                'panels::user-menu.before',
+                fn () => view('filament.components.user-info'),
+            )
+
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
