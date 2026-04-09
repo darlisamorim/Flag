@@ -66,7 +66,13 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
 
     public function getFilamentAvatarUrl(): ?string
     {
-        return $this->avatar ? asset('storage/' . $this->avatar) : null;
+        if (!$this->avatar) return null;
+
+        // O banco guarda só o nome do arquivo (ex: foto.png)
+        // O FileUpload com ->directory('avatars') cuida do path no disco
+        $path = str_contains($this->avatar, '/') ? $this->avatar : 'avatars/' . $this->avatar;
+
+        return asset('storage/' . $path);
     }
 
     public function getAgeAttribute(): int

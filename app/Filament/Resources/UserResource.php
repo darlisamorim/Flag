@@ -59,7 +59,9 @@ class UserResource extends Resource
                 Forms\Components\Section::make('Perfil e acesso')
                     ->schema([
 
-                        // Foto de perfil — componente único com preview integrado
+                        // Foto de perfil — salva pelo botão do formulário
+                        // Sem ->directory() para que o banco guarde o path completo
+                        // e o Filament resolva o arquivo direto sem ambiguidade
                         Forms\Components\FileUpload::make('avatar')
                             ->label('Foto de perfil')
                             ->image()
@@ -70,35 +72,12 @@ class UserResource extends Resource
                             ->directory('avatars')
                             ->visibility('public')
                             ->maxSize(2048)
-                            ->live()
-                            ->afterStateUpdated(function ($state, ?User $record, Forms\Set $set) {
-                                if (!$record) return;
-
-                                // Se removeu a foto
-                                if (empty($state)) {
-                                    if ($record->avatar && Storage::disk('public')->exists($record->avatar)) {
-                                        Storage::disk('public')->delete($record->avatar);
-                                    }
-                                    $record->update(['avatar' => null]);
-                                    Notification::make()->title('Foto removida!')->success()->duration(1500)->send();
-                                    return;
-                                }
-
-                                // O state pode ser um TemporaryUploadedFile ou uma string
-                                // Se for TemporaryUploadedFile, precisamos salvar manualmente
-                                if ($state instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
-                                    $fileName = Str::slug($record->name) . '-' . time() . '.' . ($state->getClientOriginalExtension() ?: 'png');
-                                    $path = $state->storeAs('avatars', $fileName, 'public');
-
-                                    // Deleta avatar antigo
-                                    if ($record->avatar && Storage::disk('public')->exists($record->avatar)) {
-                                        Storage::disk('public')->delete($record->avatar);
-                                    }
-
-                                    $record->update(['avatar' => $path]);
-                                    $set('avatar', $path);
-                                    Notification::make()->title('Foto atualizada!')->success()->duration(2000)->send();
-                                }
+                            ->saveUploadedFileUsing(function ($file) {
+                                // Salva o arquivo em avatars/ e retorna o path COMPLETO
+                                // para que o Filament consiga resolver ao recarregar
+                                $fileName = $file->hashName();
+                                $file->storeAs('avatars', $fileName, 'public');
+                                return 'avatars/' . $fileName;
                             }),
 
                         // Badge de nível — visível quando:
@@ -328,11 +307,13 @@ class UserResource extends Resource
                         Forms\Components\TextInput::make('current_password')
                             ->label('Senha atual')
                             ->password()->revealable()->dehydrated(false)
+                            ->autocomplete('off')
                             ->visible(fn (?User $record) => (int) $record?->id === (int) Auth::id()),
 
                         Forms\Components\TextInput::make('password')
                             ->label('Nova senha')
                             ->password()->revealable()
+                            ->autocomplete('new-password')
                             ->required(fn (string $operation) => $operation === 'create')
                             ->dehydrated(fn ($state) => filled($state))
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
@@ -341,6 +322,7 @@ class UserResource extends Resource
                         Forms\Components\TextInput::make('password_confirmation')
                             ->label('Confirmar nova senha')
                             ->password()->revealable()
+                            ->autocomplete('new-password')
                             ->required(fn (string $operation) => $operation === 'create')
                             ->dehydrated(false)
                             ->same('password'),

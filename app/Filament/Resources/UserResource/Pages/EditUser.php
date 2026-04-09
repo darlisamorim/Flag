@@ -37,6 +37,24 @@ class EditUser extends EditRecord
         return (int) $recordId === (int) $auth->id;
     }
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Se o avatar mudou, deleta o antigo do disco
+        $oldAvatar = $this->record->avatar;
+        $newAvatar = $data['avatar'] ?? null;
+
+        if ($oldAvatar && $oldAvatar !== $newAvatar) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($oldAvatar);
+        }
+
+        return $data;
+    }
+
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return 'Perfil salvo com sucesso!';
+    }
+
     protected function getHeaderActions(): array
     {
         return [
