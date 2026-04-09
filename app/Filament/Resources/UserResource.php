@@ -22,7 +22,8 @@ class UserResource extends Resource
     protected static ?string $navigationLabel = 'Usuários';
     protected static ?string $modelLabel = 'Usuário';
     protected static ?string $pluralModelLabel = 'Usuários';
-    protected static ?int $navigationSort = 98;
+    protected static ?string $navigationGroup = 'Configurações';
+    protected static ?int $navigationSort = 1;
 
     /**
      * Qualquer usuário autenticado pode acessar as ROTAS do resource.

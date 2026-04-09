@@ -12,6 +12,7 @@ class EditProfile extends Page
     protected static ?string $navigationLabel = 'Meu Perfil';
     protected static ?string $title = 'Meu Perfil';
     protected static ?int $navigationSort = 99;
+    protected static bool $shouldRegisterNavigation = false;
 
     // View não será usada pois redirecionamos antes de renderizar
     protected static string $view = 'filament.pages.edit-profile';

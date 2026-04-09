@@ -8,6 +8,7 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\MenuItem;
+use Filament\Navigation\NavigationGroup;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -35,30 +36,32 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::hex(env('DAA_PANEL_COLOR') ?: '#e3000b'),
             ])
 
-            // ── Menu do usuário: "Meu Perfil" leva para UserResource/edit ──
-            ->userMenuItems([
-                'profile' => MenuItem::make()
-                    ->label('Meu Perfil')
-                    ->url(fn () => UserResource::getUrl('edit', ['record' => Auth::id()]))
-                    ->icon('heroicon-o-user-circle'),
+            // ── Remove todos os itens do menu do topbar (avatar/dropdown redundante) ──
+            ->userMenuItems([])
+
+            // ── Grupos de navegação ──
+            ->navigationGroups([
+                NavigationGroup::make('Geral'),
+                NavigationGroup::make('Configurações'),
             ])
 
-            // ── Render hook: mostra nome + role ao lado do avatar no header ──
+            // ── Sidebar footer: avatar + nome + nível + perfil + sair ──
             ->renderHook(
-                'panels::user-menu.before',
-                fn () => view('filament.components.user-info'),
+                'panels::sidebar.footer',
+                fn () => view('filament.components.sidebar-footer'),
+            )
+
+            // ── Esconde o botão de avatar/menu do canto superior direito ──
+            ->renderHook(
+                'panels::head.end',
+                fn () => '<style>.fi-user-menu{display:none!important}</style>',
             )
 
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
-            ->pages([
-                Pages\Dashboard::class,
-            ])
+            ->pages([])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
-            ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
-            ])
+            ->widgets([])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
