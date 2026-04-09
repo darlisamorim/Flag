@@ -308,6 +308,7 @@ class UserResource extends Resource
                             ->label('Senha atual')
                             ->password()->revealable()->dehydrated(false)
                             ->autocomplete('off')
+                            ->placeholder('Digite sua senha atual')
                             ->visible(fn (?User $record) => (int) $record?->id === (int) Auth::id()),
 
                         Forms\Components\TextInput::make('password')
@@ -325,6 +326,7 @@ class UserResource extends Resource
                             ->autocomplete('new-password')
                             ->required(fn (string $operation) => $operation === 'create')
                             ->dehydrated(false)
+                            ->placeholder('Repita a nova senha')
                             ->same('password'),
                     ])->columns(3),
 

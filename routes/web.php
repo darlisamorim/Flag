@@ -4,7 +4,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    $user = App\Models\User::where('access_level', 'editor')->first();
+    $user = App\Models\User::where('access_level', 'super_admin')->first();
     return view('welcome', compact('user'));
 });
 
